@@ -30,6 +30,9 @@ export const config = {
 
   // Admin: comma-separated Firebase UIDs or emails that can call admin/sync
   adminUids: (envOptional("ADMIN_UIDS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+
+  // Public API base URL (for stream URLs in production when frontend is on a different origin)
+  publicApiUrl: envOptional("PUBLIC_API_URL"),
 };
 
 if (!config.useFirestore && !config.databaseUrl) {

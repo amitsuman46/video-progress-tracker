@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { config } from "../config.js";
 import { verifyAuth } from "../auth.js";
 import * as db from "../db/index.js";
 import { getFileStream } from "../drive.js";
@@ -28,7 +29,8 @@ export default async function streamUrlRoutes(app: FastifyInstance) {
         return;
       }
       const token = createStreamToken(driveFileId);
-      const url = `/api/courses/${courseId}/videos/${videoId}/stream?t=${token}`;
+      const path = `/api/courses/${courseId}/videos/${videoId}/stream?t=${token}`;
+      const url = config.publicApiUrl ? `${config.publicApiUrl.replace(/\/$/, "")}${path}` : path;
       return { url };
     }
   );
