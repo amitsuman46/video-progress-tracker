@@ -35,7 +35,7 @@ export default function Courses() {
     setSyncing(true);
     setSyncError("");
     try {
-      const res = await api<AdminSyncResponse>("/api/admin/sync", {
+      await api<AdminSyncResponse>("/api/admin/sync", {
         method: "POST",
         body: JSON.stringify({
           driveFolderId: syncFolderId.trim(),

@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/firebase.ts","./src/main.tsx","./src/vite-env.d.ts","./src/components/layout.tsx","./src/hooks/useauth.tsx","./src/pages/course.tsx","./src/pages/courses.tsx","./src/pages/login.tsx","./src/pages/videopage.tsx"],"version":"5.9.3"}
