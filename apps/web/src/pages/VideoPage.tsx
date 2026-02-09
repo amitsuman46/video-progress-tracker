@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type CourseDetail, type StreamUrlResponse, type CourseProgressMap } from "../api";
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+
 const PROGRESS_SAVE_INTERVAL_MS = 5000;
 
 function formatTime(sec: number): string {
@@ -53,7 +55,10 @@ export default function VideoPage() {
     setVideoReady(false);
     setLoading(true);
     api<StreamUrlResponse>(`/api/courses/${courseId}/videos/${videoId}/stream-url`)
-      .then((r) => setStreamUrl(r.url))
+      .then((r) => {
+        const url = r.url;
+        setStreamUrl(url.startsWith("/") && API_BASE ? `${API_BASE}${url}` : url);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [courseId, videoId]);
