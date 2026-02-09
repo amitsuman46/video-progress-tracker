@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Course {
+  id             String    @id @default(cuid())
+  title          String
+  driveFolderId  String?
+  createdAt      DateTime  @default(now())
+  sections       Section[]
+}
+
+model Section {
+  id             String     @id @default(cuid())
+  courseId       String
+  course         Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title          String
+  order         Int        @default(0)
+  driveFolderId  String?
+  createdAt      DateTime   @default(now())
+  subsections    Subsection[]
+}
+
+model Subsection {
+  id             String   @id @default(cuid())
+  sectionId      String
+  section        Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title          String
+  order         Int      @default(0)
+  driveFolderId  String?
+  createdAt      DateTime @default(now())
+  videos         Video[]
+}
+
+model Video {
+  id              String   @id @default(cuid())
+  subsectionId    String
+  subsection      Subsection @relation(fields: [subsectionId], references: [id], onDelete: Cascade)
+  title           String
+  driveFileId     String
+  order           Int      @default(0)
+  durationSeconds Int?
+  createdAt       DateTime @default(now())
+  progress        UserProgress[]
+}
+
+model UserProgress {
+  userId         String
+  videoId        String
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  progressSeconds Int     @default(0)
+  completed      Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+  @@id([userId, videoId])
+}
