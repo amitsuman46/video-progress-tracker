@@ -27,7 +27,7 @@ export async function api<T>(
   return res.json() as Promise<T>;
 }
 
-/** Fetches stream URL and uses X-API-Base header from API when present (so video loads from API in production without relying on build-time env). */
+/** Fetches stream URL and uses X-API-Base from API when present; otherwise infers API base from response URL so the video loads from the API origin (avoids same-origin 404 when frontend and API are on different domains). */
 export async function getStreamUrl(path: string): Promise<string> {
   const token = await getToken();
   const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -37,11 +37,15 @@ export async function getStreamUrl(path: string): Promise<string> {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error((err as { error?: string }).error ?? res.statusText);
   }
-  const apiBase = res.headers.get("X-API-Base")?.replace(/\/$/, "");
+  const apiBaseFromHeader = res.headers.get("X-API-Base")?.replace(/\/$/, "");
   const body = (await res.json()) as StreamUrlResponse;
   const url = body.url;
   if (url.startsWith("http")) return url;
-  return apiBase ? `${apiBase}${url}` : API_BASE ? `${API_BASE.replace(/\/$/, "")}${url}` : url;
+  // Prefer API base from header; else infer from the request URL (so when stream-url was fetched from the API, the video loads from the API, not the frontend origin)
+  const inferredBase =
+    res.url && url.startsWith("/") ? new URL(res.url).origin.replace(/\/$/, "") : "";
+  const base = apiBaseFromHeader || inferredBase || API_BASE?.replace(/\/$/, "") || "";
+  return base ? `${base}${url}` : url;
 }
 
 export interface CourseSummary {

@@ -33,6 +33,8 @@ export default async function streamUrlRoutes(app: FastifyInstance) {
       const base = config.publicApiUrl?.replace(/\/$/, "");
       const url = base ? `${base}${path}` : path;
       if (base) reply.header("X-API-Base", base);
+      else if (config.nodeEnv === "production")
+        request.log.warn("PUBLIC_API_URL is not set; stream URL is relative. Set it so video loads from the API when frontend is on another origin.");
       return { url };
     }
   );
