@@ -27,6 +27,23 @@ export async function api<T>(
   return res.json() as Promise<T>;
 }
 
+/** Fetches stream URL and uses X-API-Base header from API when present (so video loads from API in production without relying on build-time env). */
+export async function getStreamUrl(path: string): Promise<string> {
+  const token = await getToken();
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? res.statusText);
+  }
+  const apiBase = res.headers.get("X-API-Base")?.replace(/\/$/, "");
+  const body = (await res.json()) as StreamUrlResponse;
+  const url = body.url;
+  if (url.startsWith("http")) return url;
+  return apiBase ? `${apiBase}${url}` : API_BASE ? `${API_BASE.replace(/\/$/, "")}${url}` : url;
+}
+
 export interface CourseSummary {
   id: string;
   title: string;

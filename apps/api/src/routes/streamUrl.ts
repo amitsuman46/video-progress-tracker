@@ -30,7 +30,9 @@ export default async function streamUrlRoutes(app: FastifyInstance) {
       }
       const token = createStreamToken(driveFileId);
       const path = `/api/courses/${courseId}/videos/${videoId}/stream?t=${token}`;
-      const url = config.publicApiUrl ? `${config.publicApiUrl.replace(/\/$/, "")}${path}` : path;
+      const base = config.publicApiUrl?.replace(/\/$/, "");
+      const url = base ? `${base}${path}` : path;
+      if (base) reply.header("X-API-Base", base);
       return { url };
     }
   );

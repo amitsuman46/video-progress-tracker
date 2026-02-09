@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type CourseDetail, type StreamUrlResponse, type CourseProgressMap } from "../api";
-
-const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+import { api, getStreamUrl, type CourseDetail, type CourseProgressMap } from "../api";
 
 const PROGRESS_SAVE_INTERVAL_MS = 5000;
 
@@ -54,11 +52,8 @@ export default function VideoPage() {
     if (!courseId || !videoId) return;
     setVideoReady(false);
     setLoading(true);
-    api<StreamUrlResponse>(`/api/courses/${courseId}/videos/${videoId}/stream-url`)
-      .then((r) => {
-        const url = r.url;
-        setStreamUrl(url.startsWith("/") && API_BASE ? `${API_BASE}${url}` : url);
-      })
+    getStreamUrl(`/api/courses/${courseId}/videos/${videoId}/stream-url`)
+      .then(setStreamUrl)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [courseId, videoId]);
