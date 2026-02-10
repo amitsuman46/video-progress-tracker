@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type CourseDetail, type SectionSummary, type CourseProgressMap } from "../api";
+import { sortByTitleNumber } from "../utils/sortByTitleNumber";
 
 export default function Course() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -113,7 +114,7 @@ function SectionAccordion({
                 {sub.title}
               </h3>
               <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {sub.videos.map((v) => {
+                {sortByTitleNumber(sub.videos).map((v) => {
                   const p = progress?.[v.id];
                   const pct =
                     v.durationSeconds != null && p

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, getStreamUrl, type CourseDetail, type CourseProgressMap } from "../api";
+import { sortByTitleNumber } from "../utils/sortByTitleNumber";
 
 const PROGRESS_SAVE_INTERVAL_MS = 5000;
 
@@ -317,7 +318,7 @@ export default function VideoPage() {
                 {isOpen && (
                   <div style={{ borderTop: "1px solid #27272a", padding: "0.5rem 0.75rem" }}>
                     {section.subsections.map((sub) =>
-                      sub.videos.map((v) => {
+                      sortByTitleNumber(sub.videos).map((v) => {
                         const p = progress?.[v.id];
                         const pct =
                           v.durationSeconds != null && p
