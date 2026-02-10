@@ -74,6 +74,13 @@ export async function upsertProgress(
   return (db as FirestoreDb).upsertProgress(...args);
 }
 
+export async function getLeaderboardForCourse(
+  ...args: Parameters<FirestoreDb["getLeaderboardForCourse"]>
+): Promise<ReturnType<FirestoreDb["getLeaderboardForCourse"]> extends Promise<infer R> ? R : never> {
+  const db = await getDb();
+  return (db as FirestoreDb).getLeaderboardForCourse(...args);
+}
+
 export async function findCourseByDriveFolderId(
   ...args: Parameters<FirestoreDb["findCourseByDriveFolderId"]>
 ): Promise<ReturnType<FirestoreDb["findCourseByDriveFolderId"]> extends Promise<infer R> ? R : never> {

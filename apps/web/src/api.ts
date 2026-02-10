@@ -113,3 +113,16 @@ export interface AdminSyncResponse {
   title: string;
   sectionsSynced: number;
 }
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  displayLabel: string;
+  completedCount: number;
+  totalVideos: number;
+}
+
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardEntry[];
+  totalVideos: number;
+}

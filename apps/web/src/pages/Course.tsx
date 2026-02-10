@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type CourseDetail, type SectionSummary, type CourseProgressMap } from "../api";
+import {
+  api,
+  type CourseDetail,
+  type SectionSummary,
+  type CourseProgressMap,
+  type LeaderboardResponse,
+} from "../api";
 import { sortByTitleNumber } from "../utils/sortByTitleNumber";
 
 export default function Course() {
   const { courseId } = useParams<{ courseId: string }>();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [progress, setProgress] = useState<CourseProgressMap | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openSectionId, setOpenSectionId] = useState<string | null>(null);
@@ -16,10 +23,12 @@ export default function Course() {
     Promise.all([
       api<CourseDetail>(`/api/courses/${courseId}`),
       api<CourseProgressMap>(`/api/courses/${courseId}/progress`),
+      api<LeaderboardResponse>(`/api/courses/${courseId}/leaderboard`),
     ])
-      .then(([c, p]) => {
+      .then(([c, p, lb]) => {
         setCourse(c);
         setProgress(p);
+        setLeaderboard(lb);
         if (c.sections.length > 0 && !openSectionId) {
           setOpenSectionId(c.sections[0].id);
         }
@@ -35,6 +44,44 @@ export default function Course() {
   return (
     <div>
       <h1 style={{ marginBottom: "1.5rem" }}>{course.title}</h1>
+      {leaderboard && leaderboard.leaderboard.length > 0 && (
+        <div
+          style={{
+            marginBottom: "1.5rem",
+            background: "#18181b",
+            border: "1px solid #27272a",
+            borderRadius: "8px",
+            overflow: "hidden",
+          }}
+        >
+          <h2 style={{ margin: 0, padding: "0.75rem 1.25rem", fontSize: "1rem", color: "#a1a1aa", borderBottom: "1px solid #27272a" }}>
+            Leaderboard
+          </h2>
+          <ul style={{ listStyle: "none", padding: "0.5rem 1.25rem 1rem", margin: 0 }}>
+            {leaderboard.leaderboard.map((entry, index) => (
+              <li
+                key={entry.userId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "0.4rem 0",
+                  ...(index < leaderboard.leaderboard.length - 1 ? { borderBottom: "1px solid #27272a" } : {}),
+                  gap: "0.75rem",
+                }}
+              >
+                <span style={{ color: "#71717a", fontWeight: 600, minWidth: "1.5rem" }}>#{entry.rank}</span>
+                <span style={{ flex: 1, color: "#e4e4e7", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {entry.displayLabel}
+                </span>
+                <span style={{ color: "#a78bfa", flexShrink: 0 }}>
+                  {entry.completedCount} / {entry.totalVideos}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         {course.sections.map((section) => (
           <SectionAccordion

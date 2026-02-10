@@ -210,6 +210,28 @@ export async function upsertProgress(userId: string, videoId: string, progressSe
   }, { merge: true });
 }
 
+const LEADERBOARD_MAX = 50;
+
+export async function getLeaderboardForCourse(courseId: string): Promise<Array<{ userId: string; completedCount: number; totalVideos: number }>> {
+  const videoIds = await getVideoIdsByCourseId(courseId);
+  if (videoIds.length === 0) return [];
+  const byUser = new Map<string, number>();
+  const batchSize = 10;
+  for (let i = 0; i < videoIds.length; i += batchSize) {
+    const batch = videoIds.slice(i, i + batchSize);
+    const snap = await getDb().collection(COLL.userProgress).where("videoId", "in", batch).get();
+    snap.docs.forEach((d) => {
+      if (!d.get("completed")) return;
+      const uid = d.get("userId") as string;
+      byUser.set(uid, (byUser.get(uid) ?? 0) + 1);
+    });
+  }
+  return Array.from(byUser.entries())
+    .map(([userId, completedCount]) => ({ userId, completedCount, totalVideos: videoIds.length }))
+    .sort((a, b) => b.completedCount - a.completedCount)
+    .slice(0, LEADERBOARD_MAX);
+}
+
 // Admin / sync
 export async function findCourseByDriveFolderId(driveFolderId: string): Promise<{ id: string; title: string; driveFolderId: string | null } | null> {
   const snap = await getDb().collection(COLL.courses).where("driveFolderId", "==", driveFolderId).limit(1).get();

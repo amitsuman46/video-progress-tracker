@@ -1,6 +1,15 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { verifyAuth } from "../auth.js";
+import { verifyAuth, getFirebaseAdmin } from "../auth.js";
 import * as db from "../db/index.js";
+
+function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at <= 0) return "***";
+  const local = email.slice(0, at);
+  const domain = email.slice(at);
+  if (local.length <= 2) return local[0] + "***" + domain;
+  return local.slice(0, 2) + "***" + domain;
+}
 
 export default async function courseRoutes(app: FastifyInstance) {
   app.get("/courses", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -58,6 +67,41 @@ export default async function courseRoutes(app: FastifyInstance) {
         subsection: video.subsection,
         section: video.section,
       };
+    }
+  );
+
+  app.get<{ Params: { courseId: string } }>(
+    "/courses/:courseId/leaderboard",
+    async (request, reply) => {
+      const user = await verifyAuth(request, reply);
+      if (!user) return;
+      const { courseId } = request.params;
+      const course = await db.getCourseWithTree(courseId);
+      if (!course) {
+        reply.status(404).send({ error: "Course not found" });
+        return;
+      }
+      const videoIds = await db.getVideoIdsByCourseId(courseId);
+      if (videoIds.length === 0) return { leaderboard: [], totalVideos: 0 };
+      const rows = await db.getLeaderboardForCourse(courseId);
+      const uids = rows.map((r) => r.userId);
+      const displayByUid: Record<string, string> = {};
+      try {
+        const getUsersResult = await getFirebaseAdmin().auth().getUsers(uids.map((uid) => ({ uid })));
+        getUsersResult.users.forEach((u) => {
+          displayByUid[u.uid] = u.email ? maskEmail(u.email) : u.uid.slice(0, 8) + "…";
+        });
+      } catch {
+        // ignore; we'll show fallback
+      }
+      const leaderboard = rows.map((r, i) => ({
+        rank: i + 1,
+        userId: r.userId,
+        displayLabel: displayByUid[r.userId] ?? "User",
+        completedCount: r.completedCount,
+        totalVideos: r.totalVideos,
+      }));
+      return { leaderboard, totalVideos: videoIds.length };
     }
   );
 }

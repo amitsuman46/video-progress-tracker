@@ -163,6 +163,23 @@ export async function upsertProgress(userId: string, videoId: string, progressSe
   });
 }
 
+const LEADERBOARD_MAX = 50;
+
+export async function getLeaderboardForCourse(courseId: string): Promise<Array<{ userId: string; completedCount: number; totalVideos: number }>> {
+  const videoIds = await getVideoIdsByCourseId(courseId);
+  if (videoIds.length === 0) return [];
+  const rows = await client.userProgress.findMany({
+    where: { videoId: { in: videoIds }, completed: true },
+    select: { userId: true },
+  });
+  const byUser = new Map<string, number>();
+  rows.forEach((r) => byUser.set(r.userId, (byUser.get(r.userId) ?? 0) + 1));
+  return Array.from(byUser.entries())
+    .map(([userId, completedCount]) => ({ userId, completedCount, totalVideos: videoIds.length }))
+    .sort((a, b) => b.completedCount - a.completedCount)
+    .slice(0, LEADERBOARD_MAX);
+}
+
 export async function findCourseByDriveFolderId(driveFolderId: string): Promise<{ id: string; title: string; driveFolderId: string | null } | null> {
   const course = await client.course.findFirst({ where: { driveFolderId } });
   return course ? { id: course.id, title: course.title, driveFolderId: course.driveFolderId } : null;
