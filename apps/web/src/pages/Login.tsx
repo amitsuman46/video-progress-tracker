@@ -8,6 +8,9 @@ import {
 } from "firebase/auth";
 import { auth } from "../firebase";
 
+const disableSignUp = import.meta.env.VITE_DISABLE_SIGNUP === "true";
+const disableGoogleLogin = import.meta.env.VITE_DISABLE_GOOGLE_LOGIN === "true";
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -138,38 +141,42 @@ export default function Login() {
             >
               {loading ? "…" : "Log in"}
             </button>
-            <button
-              type="button"
-              onClick={handleSignUp}
-              disabled={loading}
-              style={{
-                padding: "0.6rem 1rem",
-                background: "#27272a",
-                border: "1px solid #3f3f46",
-                borderRadius: "6px",
-                color: "#e4e4e7",
-              }}
-            >
-              Sign up
-            </button>
+            {!disableSignUp && (
+              <button
+                type="button"
+                onClick={handleSignUp}
+                disabled={loading}
+                style={{
+                  padding: "0.6rem 1rem",
+                  background: "#27272a",
+                  border: "1px solid #3f3f46",
+                  borderRadius: "6px",
+                  color: "#e4e4e7",
+                }}
+              >
+                Sign up
+              </button>
+            )}
           </div>
         </form>
-        <div style={{ marginTop: "1rem", textAlign: "center" }}>
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={loading}
-            style={{
-              padding: "0.5rem 1rem",
-              background: "transparent",
-              border: "1px solid #3f3f46",
-              borderRadius: "6px",
-              color: "#a78bfa",
-            }}
-          >
-            Sign in with Google
-          </button>
-        </div>
+        {!disableGoogleLogin && (
+          <div style={{ marginTop: "1rem", textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={loading}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "transparent",
+                border: "1px solid #3f3f46",
+                borderRadius: "6px",
+                color: "#a78bfa",
+              }}
+            >
+              Sign in with Google
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
