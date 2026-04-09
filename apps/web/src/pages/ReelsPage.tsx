@@ -27,6 +27,23 @@ function setStoredSpeed(speed: number) {
   localStorage.setItem(SPEED_STORAGE_KEY, String(speed));
 }
 
+function getNextUncompletedChunkIndex(progress: CourseChunkProgressMap, videoId: string): number {
+  // Use "contiguous completion" from chunk 0..k to decide resume point.
+  // This avoids skipping to the end if user watched chunk 10 but not chunk 2.
+  const completed = new Set<number>();
+  const prefix = `${videoId}:`;
+  Object.entries(progress).forEach(([key, value]) => {
+    if (!key.startsWith(prefix)) return;
+    if (!value?.completed) return;
+    const idxStr = key.slice(prefix.length);
+    const idx = Number(idxStr);
+    if (Number.isInteger(idx) && idx >= 0) completed.add(idx);
+  });
+  let i = 0;
+  while (completed.has(i)) i += 1;
+  return i;
+}
+
 export default function ReelsPage() {
   const { courseId, videoId } = useParams<{ courseId: string; videoId: string }>();
   const [course, setCourse] = useState<CourseDetail | null>(null);
@@ -53,9 +70,10 @@ export default function ReelsPage() {
     ])
       .then(([c, cp, url]) => {
         setCourse(c);
+        const nextChunk = cp && videoId ? getNextUncompletedChunkIndex(cp, videoId) : 0;
         setChunkProgress(cp ?? {});
         setStreamUrl(url);
-        setActiveIndex(0);
+        setActiveIndex(nextChunk);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -142,6 +160,18 @@ export default function ReelsPage() {
     const h = el.clientHeight || 1;
     el.scrollTo({ top: idx * h, behavior: "smooth" });
   };
+
+  // Once we know how many chunks exist, snap/scroll to the current active chunk (resume).
+  useEffect(() => {
+    if (totalChunks <= 0) return;
+    const idx = clamp(activeIndex, 0, totalChunks - 1);
+    // Use instant scroll so it doesn't feel like it "animates away" on load.
+    const el = containerRef.current;
+    if (!el) return;
+    const h = el.clientHeight || 1;
+    el.scrollTo({ top: idx * h, behavior: "auto" });
+    if (idx !== activeIndex) setActiveIndex(idx);
+  }, [totalChunks]);
 
   const handleEnded = async () => {
     if (totalChunks <= 0) return;
