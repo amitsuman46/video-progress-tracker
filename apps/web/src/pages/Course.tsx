@@ -6,6 +6,7 @@ import {
   type SectionSummary,
   type CourseProgressMap,
   type LeaderboardResponse,
+  type ChunkLeaderboardResponse,
 } from "../api";
 import { sortByTitleNumber } from "../utils/sortByTitleNumber";
 
@@ -14,6 +15,8 @@ export default function Course() {
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [progress, setProgress] = useState<CourseProgressMap | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
+  const [chunkLeaderboard, setChunkLeaderboard] = useState<ChunkLeaderboardResponse | null>(null);
+  const [leaderboardTab, setLeaderboardTab] = useState<"videos" | "reels">("videos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openSectionId, setOpenSectionId] = useState<string | null>(null);
@@ -24,11 +27,13 @@ export default function Course() {
       api<CourseDetail>(`/api/courses/${courseId}`),
       api<CourseProgressMap>(`/api/courses/${courseId}/progress`),
       api<LeaderboardResponse>(`/api/courses/${courseId}/leaderboard`),
+      api<ChunkLeaderboardResponse>(`/api/courses/${courseId}/leaderboard?mode=chunks`),
     ])
-      .then(([c, p, lb]) => {
+      .then(([c, p, lb, clb]) => {
         setCourse(c);
         setProgress(p);
         setLeaderboard(lb);
+        setChunkLeaderboard(clb);
         if (c.sections.length > 0 && !openSectionId) {
           setOpenSectionId(c.sections[0].id);
         }
@@ -44,7 +49,7 @@ export default function Course() {
   return (
     <div>
       <h1 style={{ marginBottom: "1.5rem" }}>{course.title}</h1>
-      {leaderboard && leaderboard.leaderboard.length > 0 && (
+      {(leaderboard?.leaderboard.length || chunkLeaderboard?.leaderboard.length) ? (
         <div
           style={{
             marginBottom: "1.5rem",
@@ -54,34 +59,90 @@ export default function Course() {
             overflow: "hidden",
           }}
         >
-          <h2 style={{ margin: 0, padding: "0.75rem 1.25rem", fontSize: "1rem", color: "#a1a1aa", borderBottom: "1px solid #27272a" }}>
-            Leaderboard
-          </h2>
-          <ul style={{ listStyle: "none", padding: "0.5rem 1.25rem 1rem", margin: 0 }}>
-            {leaderboard.leaderboard.map((entry, index) => (
-              <li
-                key={entry.userId}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.25rem", borderBottom: "1px solid #27272a", gap: "1rem" }}>
+            <h2 style={{ margin: 0, fontSize: "1rem", color: "#a1a1aa" }}>Leaderboard</h2>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="button"
+                onClick={() => setLeaderboardTab("videos")}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "0.4rem 0",
-                  ...(index < leaderboard.leaderboard.length - 1 ? { borderBottom: "1px solid #27272a" } : {}),
-                  gap: "0.75rem",
+                  padding: "0.25rem 0.6rem",
+                  borderRadius: "999px",
+                  border: "1px solid #3f3f46",
+                  background: leaderboardTab === "videos" ? "#27272a" : "transparent",
+                  color: leaderboardTab === "videos" ? "#e4e4e7" : "#a1a1aa",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
                 }}
               >
-                <span style={{ color: "#71717a", fontWeight: 600, minWidth: "1.5rem" }}>#{entry.rank}</span>
-                <span style={{ flex: 1, color: "#e4e4e7", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {entry.displayLabel}
-                </span>
-                <span style={{ color: "#a78bfa", flexShrink: 0 }}>
-                  {entry.completedCount} / {entry.totalVideos}
-                </span>
-              </li>
-            ))}
+                Videos
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeaderboardTab("reels")}
+                style={{
+                  padding: "0.25rem 0.6rem",
+                  borderRadius: "999px",
+                  border: "1px solid #3f3f46",
+                  background: leaderboardTab === "reels" ? "#27272a" : "transparent",
+                  color: leaderboardTab === "reels" ? "#e4e4e7" : "#a1a1aa",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                }}
+              >
+                Reels
+              </button>
+            </div>
+          </div>
+          <ul style={{ listStyle: "none", padding: "0.5rem 1.25rem 1rem", margin: 0 }}>
+            {leaderboardTab === "videos" &&
+              (leaderboard?.leaderboard ?? []).map((entry, index, arr) => (
+                <li
+                  key={entry.userId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0.4rem 0",
+                    ...(index < arr.length - 1 ? { borderBottom: "1px solid #27272a" } : {}),
+                    gap: "0.75rem",
+                  }}
+                >
+                  <span style={{ color: "#71717a", fontWeight: 600, minWidth: "1.5rem" }}>#{entry.rank}</span>
+                  <span style={{ flex: 1, color: "#e4e4e7", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {entry.displayLabel}
+                  </span>
+                  <span style={{ color: "#a78bfa", flexShrink: 0 }}>
+                    {entry.completedCount} / {entry.totalVideos}
+                  </span>
+                </li>
+              ))}
+
+            {leaderboardTab === "reels" &&
+              (chunkLeaderboard?.leaderboard ?? []).map((entry, index, arr) => (
+                <li
+                  key={entry.userId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0.4rem 0",
+                    ...(index < arr.length - 1 ? { borderBottom: "1px solid #27272a" } : {}),
+                    gap: "0.75rem",
+                  }}
+                >
+                  <span style={{ color: "#71717a", fontWeight: 600, minWidth: "1.5rem" }}>#{entry.rank}</span>
+                  <span style={{ flex: 1, color: "#e4e4e7", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {entry.displayLabel}
+                  </span>
+                  <span style={{ color: "#a78bfa", flexShrink: 0 }}>
+                    {entry.completedCount} / {entry.totalChunks}
+                  </span>
+                </li>
+              ))}
           </ul>
         </div>
-      )}
+      ) : null}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         {course.sections.map((section) => (
           <SectionAccordion

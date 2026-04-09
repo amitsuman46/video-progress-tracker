@@ -21,6 +21,7 @@ const COLL = {
   subsections: "subsections",
   videos: "videos",
   userProgress: "userProgress",
+  userChunkProgress: "userChunkProgress",
 } as const;
 
 export async function listCourses(): Promise<{ id: string; title: string; driveFolderId: string | null; createdAt: string; sectionCount: number }[]> {
@@ -210,6 +211,45 @@ export async function upsertProgress(userId: string, videoId: string, progressSe
   }, { merge: true });
 }
 
+export async function upsertChunkProgress(userId: string, videoId: string, chunkIndex: number, completed: boolean): Promise<void> {
+  const docId = `${userId}_${videoId}_${chunkIndex}`;
+  await getDb().collection(COLL.userChunkProgress).doc(docId).set({
+    userId,
+    videoId,
+    chunkIndex,
+    completed,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function getChunkProgressForCourse(
+  userId: string,
+  courseId: string
+): Promise<Record<string, { completed: boolean; updatedAt: string }>> {
+  const videoIds = await getVideoIdsByCourseId(courseId);
+  const out: Record<string, { completed: boolean; updatedAt: string }> = {};
+  if (videoIds.length === 0) return out;
+  // Firestore "in" queries limited to 10 items; batch on videoId
+  for (let i = 0; i < videoIds.length; i += 10) {
+    const batch = videoIds.slice(i, i + 10);
+    const snap = await getDb()
+      .collection(COLL.userChunkProgress)
+      .where("userId", "==", userId)
+      .where("videoId", "in", batch)
+      .get();
+    snap.docs.forEach((d) => {
+      const vid = d.get("videoId") as string;
+      const idx = d.get("chunkIndex") as number;
+      const key = `${vid}:${idx}`;
+      out[key] = {
+        completed: Boolean(d.get("completed")),
+        updatedAt: (d.get("updatedAt") as { toDate?: () => Date })?.toDate?.()?.toISOString?.() ?? "",
+      };
+    });
+  }
+  return out;
+}
+
 const LEADERBOARD_MAX = 50;
 
 export async function getLeaderboardForCourse(courseId: string): Promise<Array<{ userId: string; completedCount: number; totalVideos: number }>> {
@@ -228,6 +268,26 @@ export async function getLeaderboardForCourse(courseId: string): Promise<Array<{
   }
   return Array.from(byUser.entries())
     .map(([userId, completedCount]) => ({ userId, completedCount, totalVideos: videoIds.length }))
+    .sort((a, b) => b.completedCount - a.completedCount)
+    .slice(0, LEADERBOARD_MAX);
+}
+
+export async function getChunkLeaderboardForCourse(courseId: string): Promise<Array<{ userId: string; completedCount: number }>> {
+  const videoIds = await getVideoIdsByCourseId(courseId);
+  if (videoIds.length === 0) return [];
+  const byUser = new Map<string, number>();
+  const batchSize = 10;
+  for (let i = 0; i < videoIds.length; i += batchSize) {
+    const batch = videoIds.slice(i, i + batchSize);
+    const snap = await getDb().collection(COLL.userChunkProgress).where("videoId", "in", batch).get();
+    snap.docs.forEach((d) => {
+      if (!d.get("completed")) return;
+      const uid = d.get("userId") as string;
+      byUser.set(uid, (byUser.get(uid) ?? 0) + 1);
+    });
+  }
+  return Array.from(byUser.entries())
+    .map(([userId, completedCount]) => ({ userId, completedCount }))
     .sort((a, b) => b.completedCount - a.completedCount)
     .slice(0, LEADERBOARD_MAX);
 }

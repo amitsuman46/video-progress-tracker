@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Courses from "./pages/Courses";
 import Course from "./pages/Course";
 import VideoPage from "./pages/VideoPage";
+import ReelsPage from "./pages/ReelsPage";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
           <Route index element={<Courses />} />
           <Route path="courses/:courseId" element={<Course />} />
           <Route path="courses/:courseId/videos/:videoId" element={<VideoPage />} />
+          <Route path="courses/:courseId/videos/:videoId/reels" element={<ReelsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

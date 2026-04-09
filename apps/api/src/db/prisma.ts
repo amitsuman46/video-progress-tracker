@@ -3,6 +3,13 @@ import { prisma } from "../db.js";
 
 const client: PrismaClient = prisma!;
 
+function requireChunkModel() {
+  // If Prisma Client hasn't been regenerated after schema changes, this delegate will be missing.
+  if (!(client as unknown as { userChunkProgress?: unknown }).userChunkProgress) {
+    throw new Error("Prisma client missing userChunkProgress. Run: npx prisma db push && npx prisma generate");
+  }
+}
+
 export async function listCourses(): Promise<{ id: string; title: string; driveFolderId: string | null; createdAt: string; sectionCount: number }[]> {
   const courses = await client.course.findMany({
     orderBy: { createdAt: "asc" },
@@ -163,6 +170,32 @@ export async function upsertProgress(userId: string, videoId: string, progressSe
   });
 }
 
+export async function upsertChunkProgress(userId: string, videoId: string, chunkIndex: number, completed: boolean): Promise<void> {
+  requireChunkModel();
+  await client.userChunkProgress.upsert({
+    where: { userId_videoId_chunkIndex: { userId, videoId, chunkIndex } },
+    create: { userId, videoId, chunkIndex, completed },
+    update: { completed },
+  });
+}
+
+export async function getChunkProgressForCourse(
+  userId: string,
+  courseId: string
+): Promise<Record<string, { completed: boolean; updatedAt: string }>> {
+  requireChunkModel();
+  const videoIds = await getVideoIdsByCourseId(courseId);
+  const out: Record<string, { completed: boolean; updatedAt: string }> = {};
+  if (videoIds.length === 0) return out;
+  const list = await client.userChunkProgress.findMany({
+    where: { userId, videoId: { in: videoIds } },
+  });
+  list.forEach((p) => {
+    out[`${p.videoId}:${p.chunkIndex}`] = { completed: p.completed, updatedAt: p.updatedAt.toISOString() };
+  });
+  return out;
+}
+
 const LEADERBOARD_MAX = 50;
 
 export async function getLeaderboardForCourse(courseId: string): Promise<Array<{ userId: string; completedCount: number; totalVideos: number }>> {
@@ -176,6 +209,22 @@ export async function getLeaderboardForCourse(courseId: string): Promise<Array<{
   rows.forEach((r) => byUser.set(r.userId, (byUser.get(r.userId) ?? 0) + 1));
   return Array.from(byUser.entries())
     .map(([userId, completedCount]) => ({ userId, completedCount, totalVideos: videoIds.length }))
+    .sort((a, b) => b.completedCount - a.completedCount)
+    .slice(0, LEADERBOARD_MAX);
+}
+
+export async function getChunkLeaderboardForCourse(courseId: string): Promise<Array<{ userId: string; completedCount: number }>> {
+  requireChunkModel();
+  const videoIds = await getVideoIdsByCourseId(courseId);
+  if (videoIds.length === 0) return [];
+  const rows = await client.userChunkProgress.findMany({
+    where: { videoId: { in: videoIds }, completed: true },
+    select: { userId: true },
+  });
+  const byUser = new Map<string, number>();
+  rows.forEach((r) => byUser.set(r.userId, (byUser.get(r.userId) ?? 0) + 1));
+  return Array.from(byUser.entries())
+    .map(([userId, completedCount]) => ({ userId, completedCount }))
     .sort((a, b) => b.completedCount - a.completedCount)
     .slice(0, LEADERBOARD_MAX);
 }

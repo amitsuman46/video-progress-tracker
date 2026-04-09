@@ -74,11 +74,32 @@ export async function upsertProgress(
   return (db as FirestoreDb).upsertProgress(...args);
 }
 
+export async function upsertChunkProgress(
+  ...args: Parameters<FirestoreDb["upsertChunkProgress"]>
+): Promise<ReturnType<FirestoreDb["upsertChunkProgress"]> extends Promise<infer R> ? R : never> {
+  const db = await getDb();
+  return (db as FirestoreDb).upsertChunkProgress(...args);
+}
+
+export async function getChunkProgressForCourse(
+  ...args: Parameters<FirestoreDb["getChunkProgressForCourse"]>
+): Promise<ReturnType<FirestoreDb["getChunkProgressForCourse"]> extends Promise<infer R> ? R : never> {
+  const db = await getDb();
+  return (db as FirestoreDb).getChunkProgressForCourse(...args);
+}
+
 export async function getLeaderboardForCourse(
   ...args: Parameters<FirestoreDb["getLeaderboardForCourse"]>
 ): Promise<ReturnType<FirestoreDb["getLeaderboardForCourse"]> extends Promise<infer R> ? R : never> {
   const db = await getDb();
   return (db as FirestoreDb).getLeaderboardForCourse(...args);
+}
+
+export async function getChunkLeaderboardForCourse(
+  ...args: Parameters<FirestoreDb["getChunkLeaderboardForCourse"]>
+): Promise<ReturnType<FirestoreDb["getChunkLeaderboardForCourse"]> extends Promise<infer R> ? R : never> {
+  const db = await getDb();
+  return (db as FirestoreDb).getChunkLeaderboardForCourse(...args);
 }
 
 export async function findCourseByDriveFolderId(

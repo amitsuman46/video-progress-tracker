@@ -70,20 +70,23 @@ export default async function courseRoutes(app: FastifyInstance) {
     }
   );
 
-  app.get<{ Params: { courseId: string } }>(
+  app.get<{ Params: { courseId: string }; Querystring: { mode?: "videos" | "chunks" } }>(
     "/courses/:courseId/leaderboard",
     async (request, reply) => {
       const user = await verifyAuth(request, reply);
       if (!user) return;
       const { courseId } = request.params;
+      const mode = request.query.mode ?? "videos";
       const course = await db.getCourseWithTree(courseId);
       if (!course) {
         reply.status(404).send({ error: "Course not found" });
         return;
       }
       const videoIds = await db.getVideoIdsByCourseId(courseId);
-      if (videoIds.length === 0) return { leaderboard: [], totalVideos: 0 };
-      const rows = await db.getLeaderboardForCourse(courseId);
+      if (videoIds.length === 0) return mode === "chunks" ? { leaderboard: [], totalChunks: 0 } : { leaderboard: [], totalVideos: 0 };
+
+      const rows =
+        mode === "chunks" ? await db.getChunkLeaderboardForCourse(courseId) : await db.getLeaderboardForCourse(courseId);
       const uids = rows.map((r) => r.userId);
       const displayByUid: Record<string, string> = {};
       try {
@@ -94,7 +97,23 @@ export default async function courseRoutes(app: FastifyInstance) {
       } catch {
         // ignore; we'll show fallback
       }
-      const leaderboard = rows.map((r, i) => ({
+      if (mode === "chunks") {
+        const chunkSeconds = 120;
+        const totalChunks = course.sections
+          .flatMap((s) => s.subsections)
+          .flatMap((ss) => ss.videos)
+          .reduce((n, v) => n + (v.durationSeconds != null ? Math.ceil(v.durationSeconds / chunkSeconds) : 0), 0);
+        const leaderboard = rows.map((r, i) => ({
+          rank: i + 1,
+          userId: r.userId,
+          displayLabel: displayByUid[r.userId] ?? "User",
+          completedCount: r.completedCount,
+          totalChunks,
+        }));
+        return { leaderboard, totalChunks };
+      }
+
+      const leaderboard = (rows as Array<{ userId: string; completedCount: number; totalVideos: number }>).map((r, i) => ({
         rank: i + 1,
         userId: r.userId,
         displayLabel: displayByUid[r.userId] ?? "User",

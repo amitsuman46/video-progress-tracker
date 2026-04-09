@@ -241,6 +241,13 @@ export default function VideoPage() {
         </div>
 
         <h2 style={{ marginTop: "1rem" }}>{currentVideo?.title ?? "Video"}</h2>
+        {courseId && videoId && (
+          <div style={{ marginTop: "0.75rem" }}>
+            <Link to={`/courses/${courseId}/videos/${videoId}/reels`} style={{ color: "#a78bfa" }}>
+              Open Reels view (2 min chunks)
+            </Link>
+          </div>
+        )}
         <Link to={`/courses/${courseId}`} style={{ display: "inline-block", marginTop: "0.5rem" }}>
           ← Back to course
         </Link>

@@ -101,6 +101,10 @@ export interface CourseProgressMap {
   [videoId: string]: { progressSeconds: number; completed: boolean };
 }
 
+export interface CourseChunkProgressMap {
+  [videoIdAndChunkIndex: string]: { completed: boolean; updatedAt: string };
+}
+
 export interface MeResponse {
   uid: string;
   email: string | null;
@@ -125,4 +129,17 @@ export interface LeaderboardEntry {
 export interface LeaderboardResponse {
   leaderboard: LeaderboardEntry[];
   totalVideos: number;
+}
+
+export interface ChunkLeaderboardEntry {
+  rank: number;
+  userId: string;
+  displayLabel: string;
+  completedCount: number;
+  totalChunks: number;
+}
+
+export interface ChunkLeaderboardResponse {
+  leaderboard: ChunkLeaderboardEntry[];
+  totalChunks: number;
 }

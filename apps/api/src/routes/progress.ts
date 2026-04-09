@@ -8,6 +8,12 @@ interface ProgressBody {
   completed: boolean;
 }
 
+interface ChunkProgressBody {
+  videoId: string;
+  chunkIndex: number;
+  completed: boolean;
+}
+
 export default async function progressRoutes(app: FastifyInstance) {
   // Get all progress for current user
   app.get("/progress", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -67,5 +73,40 @@ export default async function progressRoutes(app: FastifyInstance) {
     }
     await db.upsertProgress(user.uid, videoId, progressSeconds ?? 0, Boolean(completed));
     return { ok: true };
+  });
+
+  // Get chunk progress for a course (all reels/chunks in that course for current user)
+  app.get<{ Params: { courseId: string } }>(
+    "/courses/:courseId/chunk-progress",
+    async (request, reply) => {
+      const user = await verifyAuth(request, reply);
+      if (!user) return;
+      const { courseId } = request.params;
+      try {
+        const map = await db.getChunkProgressForCourse(user.uid, courseId);
+        return map;
+      } catch (e) {
+        request.log.error(e);
+        reply.status(500).send({ error: e instanceof Error ? e.message : "Failed to load chunk progress" });
+      }
+    }
+  );
+
+  // Save chunk progress (upsert)
+  app.post<{ Body: ChunkProgressBody }>("/chunk-progress", async (request, reply) => {
+    const user = await verifyAuth(request, reply);
+    if (!user) return;
+    const { videoId, chunkIndex, completed } = request.body ?? {};
+    if (typeof videoId !== "string" || typeof chunkIndex !== "number") {
+      reply.status(400).send({ error: "videoId and chunkIndex required" });
+      return;
+    }
+    try {
+      await db.upsertChunkProgress(user.uid, videoId, chunkIndex, Boolean(completed));
+      return { ok: true };
+    } catch (e) {
+      request.log.error(e);
+      reply.status(500).send({ error: e instanceof Error ? e.message : "Failed to save chunk progress" });
+    }
   });
 }
