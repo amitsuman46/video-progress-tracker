@@ -54,15 +54,20 @@ export default function ReelsPage() {
   const [error, setError] = useState("");
   const [speed, setSpeed] = useState<number>(() => getStoredSpeed());
   const [mediaDuration, setMediaDuration] = useState<number | null>(null);
+  const resumeIndexRef = useRef<number>(0);
+  const resumeAppliedRef = useRef(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeVideoRef = useRef<HTMLVideoElement>(null);
+  const completingRef = useRef<Set<number>>(new Set());
+  const advancingRef = useRef(false);
 
   useEffect(() => {
     if (!courseId || !videoId) return;
     setLoading(true);
     setError("");
     setMediaDuration(null);
+    resumeAppliedRef.current = false;
     Promise.all([
       api<CourseDetail>(`/api/courses/${courseId}`),
       api<CourseChunkProgressMap>(`/api/courses/${courseId}/chunk-progress`),
@@ -71,9 +76,11 @@ export default function ReelsPage() {
       .then(([c, cp, url]) => {
         setCourse(c);
         const nextChunk = cp && videoId ? getNextUncompletedChunkIndex(cp, videoId) : 0;
+        resumeIndexRef.current = nextChunk;
         setChunkProgress(cp ?? {});
         setStreamUrl(url);
-        setActiveIndex(nextChunk);
+        // While duration is unknown, we must play chunk 0 to learn duration via media metadata.
+        setActiveIndex(0);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -99,10 +106,11 @@ export default function ReelsPage() {
     return Math.max(1, Math.ceil(duration / CHUNK_SECONDS));
   }, [effectiveDurationSeconds]);
 
-  const chunkStart = useMemo(() => activeIndex * CHUNK_SECONDS, [activeIndex]);
+  const effectiveActiveIndex = totalChunks > 0 ? activeIndex : 0;
+  const chunkStart = useMemo(() => effectiveActiveIndex * CHUNK_SECONDS, [effectiveActiveIndex]);
   const chunkEnd = useMemo(
-    () => Math.min((activeIndex + 1) * CHUNK_SECONDS, effectiveDurationSeconds ?? Infinity),
-    [activeIndex, effectiveDurationSeconds]
+    () => Math.min((effectiveActiveIndex + 1) * CHUNK_SECONDS, effectiveDurationSeconds ?? Infinity),
+    [effectiveActiveIndex, effectiveDurationSeconds]
   );
 
   const keyFor = (idx: number) => `${videoId}:${idx}`;
@@ -117,6 +125,9 @@ export default function ReelsPage() {
 
   const markChunkCompleted = async (idx: number) => {
     if (!videoId) return;
+    if (isChunkCompleted(idx)) return;
+    if (completingRef.current.has(idx)) return;
+    completingRef.current.add(idx);
     try {
       await api("/api/chunk-progress", {
         method: "POST",
@@ -128,6 +139,8 @@ export default function ReelsPage() {
       }));
     } catch (e) {
       console.error(e);
+    } finally {
+      completingRef.current.delete(idx);
     }
   };
 
@@ -164,6 +177,19 @@ export default function ReelsPage() {
   // Once we know how many chunks exist, snap/scroll to the current active chunk (resume).
   useEffect(() => {
     if (totalChunks <= 0) return;
+    // Apply resume target exactly once per load (after duration is known).
+    if (!resumeAppliedRef.current) {
+      const target = clamp(resumeIndexRef.current, 0, totalChunks - 1);
+      resumeAppliedRef.current = true;
+      setActiveIndex(target);
+      const el = containerRef.current;
+      if (el) {
+        const h = el.clientHeight || 1;
+        el.scrollTo({ top: target * h, behavior: "auto" });
+      }
+      return;
+    }
+
     const idx = clamp(activeIndex, 0, totalChunks - 1);
     // Use instant scroll so it doesn't feel like it "animates away" on load.
     const el = containerRef.current;
@@ -175,11 +201,20 @@ export default function ReelsPage() {
 
   const handleEnded = async () => {
     if (totalChunks <= 0) return;
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     const idx = activeIndex;
-    if (!isChunkCompleted(idx)) await markChunkCompleted(idx);
-    const next = idx + 1;
-    if (next < totalChunks) scrollToIndex(next);
-    else refreshChunkProgress();
+    try {
+      await markChunkCompleted(idx);
+      const next = idx + 1;
+      if (next < totalChunks) scrollToIndex(next);
+      else refreshChunkProgress();
+    } finally {
+      // allow next transition after current tick
+      setTimeout(() => {
+        advancingRef.current = false;
+      }, 0);
+    }
   };
 
   if (loading) return <p>Loading reels…</p>;
@@ -247,7 +282,7 @@ export default function ReelsPage() {
       >
         {Array.from({ length: Math.max(1, totalChunks) }).map((_, idx) => {
             const completed = isChunkCompleted(idx);
-            const isActive = idx === activeIndex;
+            const isActive = totalChunks > 0 ? idx === activeIndex : idx === 0;
             return (
               <div
                 key={idx}
@@ -296,6 +331,7 @@ export default function ReelsPage() {
                           handleEnded();
                         }
                       }}
+                      // keep onEnded for browsers that fire it reliably; guarded by advancingRef/completingRef
                       onEnded={handleEnded}
                     />
                   ) : (
